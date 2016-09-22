@@ -1,12 +1,12 @@
 package com.qinglinyi.view;
 
+import android.annotation.TargetApi;
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
+import android.content.res.TypedArray;
 import android.graphics.Canvas;
-import android.graphics.Matrix;
 import android.graphics.Paint;
-import android.graphics.RectF;
+import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
@@ -25,20 +25,17 @@ public class SectionBar extends View {
 
     private String[] list;//
     private Paint textPaint;
-    private int textColor = 0xff000000;//
-    private int hightlightBgColor = 0xff999999;//
+    private int textColor = 0xFF333333;// 默认文本颜色
     private float textSize;
-    private int spacing;//
+    private float spacing = 0;//
 
     private OnActionListener mOnActionListener;
     private float letterHeight;
 
     // 高亮
     private int curPosition = -1;
-    private Paint hightlightBgPaint;
-    private Bitmap hightlightBgBitmap;//
-    private Matrix bitmapMatrix;
-    private RectF rect;
+    private Drawable mSelectedDrawable;
+    private Drawable mHightlightDrawable;
 
     private String[] DEFAULT_LIST = new String[]{
             "↑", "☆", "A", "B", "C", "D", "E",
@@ -49,37 +46,54 @@ public class SectionBar extends View {
 
     public SectionBar(Context context, AttributeSet attrs, int defStyle) {
         super(context, attrs, defStyle);
-        init();
+        init(context, attrs);
     }
 
     public SectionBar(Context context, AttributeSet attrs) {
         super(context, attrs);
-        init();
+        init(context, attrs);
     }
 
     public SectionBar(Context context) {
         super(context);
-        init();
+        init(context, null);
     }
 
-    private void init() {
+    @TargetApi(Build.VERSION_CODES.LOLLIPOP)
+    public SectionBar(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
+        super(context, attrs, defStyleAttr, defStyleRes);
+        init(context, attrs);
+    }
+
+    private void init(Context context, AttributeSet attrs) {
+        if (attrs != null) {
+            TypedArray a = context.obtainStyledAttributes(attrs,
+                    R.styleable.SectionBar);
+            spacing = a.getDimension(R.styleable.SectionBar_spacing, 0);
+            textColor = a.getColor(R.styleable.SectionBar_textColor, textColor);
+            mSelectedDrawable = a.getDrawable(R.styleable.SectionBar_selectedDrawable);
+            mHightlightDrawable = a.getDrawable(R.styleable.SectionBar_hightlightDrawable);
+            a.recycle();
+        }
 
         list = DEFAULT_LIST;
         textPaint = new Paint();
         textPaint.setStyle(Paint.Style.FILL);
         textPaint.setTextAlign(Paint.Align.CENTER);
 
-        hightlightBgPaint = new Paint();
-        hightlightBgPaint.setAntiAlias(true);
-        hightlightBgPaint.setStyle(Paint.Style.FILL);
+    }
 
-        bitmapMatrix = new Matrix();
-        rect = new RectF();
+    public void setSelectedDrawable(Drawable selectedDrawable) {
+        mSelectedDrawable = selectedDrawable;
+    }
+
+    public void setSelectedDrawable(int res) {
+        mSelectedDrawable = getResources().getDrawable(res);
     }
 
     public void setList(String[] list) {
         this.list = list;
-        invalidate();
+        postInvalidate();
     }
 
     public void setList(List<String> list) {
@@ -95,16 +109,13 @@ public class SectionBar extends View {
         textColor = color;
     }
 
-    public void setHightlightBgColor(int color) {
-        hightlightBgColor = color;
+
+    public void setSpacing(int spacing) {
+        this.spacing = spacing;
     }
 
-    public void setHightlightBgBitmap(int res) {
-        hightlightBgBitmap = BitmapFactory.decodeResource(getResources(), res);
-    }
-
-    public void setHightlightBgBitmap(Bitmap bitmap) {
-        hightlightBgBitmap = bitmap;
+    public String[] getList() {
+        return list;
     }
 
     @Override
@@ -112,25 +123,28 @@ public class SectionBar extends View {
         super.onDraw(canvas);
         calculate();
 
-        // hightlight
-        hightlightBgPaint.setColor(hightlightBgColor);
+        // 选中时候的背景
+        if (isPressed() && mHightlightDrawable != null) {
+            mHightlightDrawable.setBounds(0, 0, getWidth(), getHeight());
+            mHightlightDrawable.draw(canvas);
+        }
 
+        // item 高亮
         if (curPosition >= 0 && curPosition < list.length) {
-            final float top = curPosition * letterHeight + textSize;
-
-            if (hightlightBgBitmap != null) {
-                final float sx = getWidth() * 1.0f
-                        / hightlightBgBitmap.getWidth();
-                final float sy = letterHeight / hightlightBgBitmap.getHeight();
-                bitmapMatrix.setTranslate(0, top);
-                bitmapMatrix.postScale(sx, sy);
-                canvas.drawBitmap(hightlightBgBitmap, bitmapMatrix,
-                        hightlightBgPaint);
+            float top = curPosition * letterHeight + textSize / 2;
+            if (spacing <= 0) {
+                top += letterHeight * 0.2f;
             } else {
-                rect.set(0, top, getWidth(), top + letterHeight);
-                canvas.drawRoundRect(rect, 6, 6, hightlightBgPaint);
+                top += spacing / 2;
             }
-
+            if (mSelectedDrawable != null) {
+                mSelectedDrawable.setBounds(
+                        getPaddingLeft(),
+                        (int) top,
+                        getWidth() - getPaddingRight(),
+                        (int) (top + letterHeight));
+                mSelectedDrawable.draw(canvas);
+            }
         }
 
         textPaint.setColor(textColor);
@@ -156,6 +170,58 @@ public class SectionBar extends View {
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
         calculate();
+    }
+
+    /**
+     * Determines the width of this view
+     * @param measureSpec A measureSpec packed into an int
+     * @return The width of the view, honoring constraints from measureSpec
+     */
+    private int measureWidth(int measureSpec) {
+        int result = 0;
+        int specMode = MeasureSpec.getMode(measureSpec);
+        int specSize = MeasureSpec.getSize(measureSpec);
+
+        if (specMode == MeasureSpec.EXACTLY) {
+            // We were told how big to be
+            result = specSize;
+        } else {
+//            // Measure the text
+//            result = (int) mTextPaint.measureText(mText) + getPaddingLeft()
+//                    + getPaddingRight();
+//            if (specMode == MeasureSpec.AT_MOST) {
+//                // Respect AT_MOST value if that was what is called for by measureSpec
+//                result = Math.min(result, specSize);
+//            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Determines the height of this view
+     * @param measureSpec A measureSpec packed into an int
+     * @return The height of the view, honoring constraints from measureSpec
+     */
+    private int measureHeight(int measureSpec) {
+        int result = 0;
+        int specMode = MeasureSpec.getMode(measureSpec);
+        int specSize = MeasureSpec.getSize(measureSpec);
+
+//        mAscent = (int) mTextPaint.ascent();
+//        if (specMode == MeasureSpec.EXACTLY) {
+//            // We were told how big to be
+//            result = specSize;
+//        } else {
+//            // Measure the text (beware: ascent is a negative number)
+//            result = (int) (-mAscent + mTextPaint.descent()) + getPaddingTop()
+//                    + getPaddingBottom();
+//            if (specMode == MeasureSpec.AT_MOST) {
+//                // Respect AT_MOST value if that was what is called for by measureSpec
+//                result = Math.min(result, specSize);
+//            }
+//        }
+        return result;
     }
 
     @Override
@@ -206,6 +272,5 @@ public class SectionBar extends View {
     public void setOnActionListener(OnActionListener onActionListener) {
         mOnActionListener = onActionListener;
     }
-
 }
 

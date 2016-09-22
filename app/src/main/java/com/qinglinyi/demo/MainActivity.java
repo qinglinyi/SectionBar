@@ -13,6 +13,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         SectionBar sb = (SectionBar) findViewById(R.id.sb);
+//        sb.setHightlightBgBitmap(R.mipmap.ic_launcher);
         sb.setOnActionListener(new SectionBar.OnActionListener() {
             @Override
             public void show(String item) {
