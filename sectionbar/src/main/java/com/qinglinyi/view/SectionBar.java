@@ -112,6 +112,8 @@ public class SectionBar extends View {
 
     /**
      * 设置文字颜色
+     * <p>
+     * 也可以在布局中设置textColor
      *
      * @param color 文字颜色
      */
@@ -126,6 +128,18 @@ public class SectionBar extends View {
 
     public String[] getList() {
         return list;
+    }
+
+    public void setSpacing(float spacing) {
+        this.spacing = spacing;
+    }
+
+    public void setTextSelectedColor(int textSelectedColor) {
+        this.textSelectedColor = textSelectedColor;
+    }
+
+    public void setHightlightDrawable(Drawable hightlightDrawable) {
+        mHightlightDrawable = hightlightDrawable;
     }
 
     @Override
