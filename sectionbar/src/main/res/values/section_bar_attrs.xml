@@ -3,6 +3,8 @@
     <declare-styleable name="SectionBar">
         <attr name="spacing" format="dimension"/>
         <attr name="textColor" format="color"/>
+        <attr name="retainSelected" format="boolean"/>
+        <attr name="textSelectedColor" format="color"/>
         <attr name="selectedDrawable" format="reference"/>
         <attr name="hightlightDrawable" format="reference"/>
     </declare-styleable>

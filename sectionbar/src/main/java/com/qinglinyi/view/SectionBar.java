@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.graphics.Canvas;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.util.AttributeSet;
@@ -23,19 +24,26 @@ import java.util.List;
  */
 public class SectionBar extends View {
 
-    private String[] list;//
+    private String[] list;// 字符列表
     private Paint textPaint;
-    private int textColor = 0xFF333333;// 默认文本颜色
-    private float textSize;
-    private float spacing = 0;//
+    private int textColor = 0xFF333333;// 文本颜色
+    private int textSelectedColor;// 选中的文本颜色
+    private float textSize; // 字符大小,根据高度和间距计算
+    private float spacing = 0;// 字符间距
+    private boolean retainSelected;// 是否保留选择的状态
 
     private OnActionListener mOnActionListener;
-    private float letterHeight;
+    /**
+     * item 高度,包括字符以及间距
+     */
+    private float itemHeight;
 
     // 高亮
     private int curPosition = -1;
     private Drawable mSelectedDrawable;
     private Drawable mHightlightDrawable;
+
+    private Rect textBound = new Rect();
 
     private String[] DEFAULT_LIST = new String[]{
             "↑", "☆", "A", "B", "C", "D", "E",
@@ -71,8 +79,10 @@ public class SectionBar extends View {
                     R.styleable.SectionBar);
             spacing = a.getDimension(R.styleable.SectionBar_spacing, 0);
             textColor = a.getColor(R.styleable.SectionBar_textColor, textColor);
+            textSelectedColor = a.getColor(R.styleable.SectionBar_textSelectedColor, textColor);
             mSelectedDrawable = a.getDrawable(R.styleable.SectionBar_selectedDrawable);
             mHightlightDrawable = a.getDrawable(R.styleable.SectionBar_hightlightDrawable);
+            retainSelected = a.getBoolean(R.styleable.SectionBar_retainSelected, false);
             a.recycle();
         }
 
@@ -121,7 +131,6 @@ public class SectionBar extends View {
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        calculate();
 
         // 选中时候的背景
         if (isPressed() && mHightlightDrawable != null) {
@@ -131,96 +140,72 @@ public class SectionBar extends View {
 
         // item 高亮
         if (curPosition >= 0 && curPosition < list.length) {
-            float top = curPosition * letterHeight + textSize / 2;
-            if (spacing <= 0) {
-                top += letterHeight * 0.2f;
-            } else {
-                top += spacing / 2;
-            }
+            float top = curPosition * itemHeight + getPaddingTop();
             if (mSelectedDrawable != null) {
                 mSelectedDrawable.setBounds(
                         getPaddingLeft(),
                         (int) top,
                         getWidth() - getPaddingRight(),
-                        (int) (top + letterHeight));
+                        (int) (top + itemHeight));
                 mSelectedDrawable.draw(canvas);
             }
         }
 
-        textPaint.setColor(textColor);
-
         textPaint.setTextSize(textSize);
 
+        // 绘制文本
         for (int i = 0; i < list.length; i++) {
-            canvas.drawText(list[i], getWidth() >> 1, (i + 1) * letterHeight + textSize / 2, textPaint);
+            if (curPosition == i) {
+                textPaint.setColor(textSelectedColor);
+            } else {
+                textPaint.setColor(textColor);
+            }
+
+            textPaint.getTextBounds(list[i], 0, list[i].length(), textBound);
+            Paint.FontMetricsInt fontMetrics = textPaint.getFontMetricsInt();
+            int baseline = (int) ((itemHeight - fontMetrics.bottom + fontMetrics.top) / 2
+                    - fontMetrics.top + (i * itemHeight + getPaddingTop()));
+            canvas.drawText(list[i], getWidth() / 2, baseline, textPaint);
         }
 
     }
 
-    private void calculate() {
-        letterHeight = getHeight() / (1.0f * list.length + 1);
+    /**
+     * 根据高度和列表size计算每个字符的高度
+     *
+     * @param height 控件的高度
+     */
+    private void calculateItemHeight(int height) {
+        itemHeight = (height - getPaddingTop() - getPaddingBottom()) / (1.0f * list.length);
         if (spacing <= 0) {
-            textSize = letterHeight * 0.8f;
+            textSize = itemHeight * 0.8f;
         } else {
-            textSize = letterHeight - spacing;
+            textSize = itemHeight - spacing;
         }
     }
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        super.onMeasure(widthMeasureSpec, heightMeasureSpec);
-        calculate();
+        // 使用默认的高度
+        int height = getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec);
+        calculateItemHeight(height);
+        setMeasuredDimension(measureWidth(widthMeasureSpec), height);
     }
 
-    /**
-     * Determines the width of this view
-     * @param measureSpec A measureSpec packed into an int
-     * @return The width of the view, honoring constraints from measureSpec
-     */
     private int measureWidth(int measureSpec) {
-        int result = 0;
+        int result;
         int specMode = MeasureSpec.getMode(measureSpec);
         int specSize = MeasureSpec.getSize(measureSpec);
 
         if (specMode == MeasureSpec.EXACTLY) {
-            // We were told how big to be
             result = specSize;
         } else {
-//            // Measure the text
-//            result = (int) mTextPaint.measureText(mText) + getPaddingLeft()
-//                    + getPaddingRight();
-//            if (specMode == MeasureSpec.AT_MOST) {
-//                // Respect AT_MOST value if that was what is called for by measureSpec
-//                result = Math.min(result, specSize);
-//            }
+            result = (int) (itemHeight + getPaddingLeft() + getPaddingRight());
+            if (specMode == MeasureSpec.AT_MOST) {
+                result = Math.min(result, specSize);
+            }
         }
 
-        return result;
-    }
-
-    /**
-     * Determines the height of this view
-     * @param measureSpec A measureSpec packed into an int
-     * @return The height of the view, honoring constraints from measureSpec
-     */
-    private int measureHeight(int measureSpec) {
-        int result = 0;
-        int specMode = MeasureSpec.getMode(measureSpec);
-        int specSize = MeasureSpec.getSize(measureSpec);
-
-//        mAscent = (int) mTextPaint.ascent();
-//        if (specMode == MeasureSpec.EXACTLY) {
-//            // We were told how big to be
-//            result = specSize;
-//        } else {
-//            // Measure the text (beware: ascent is a negative number)
-//            result = (int) (-mAscent + mTextPaint.descent()) + getPaddingTop()
-//                    + getPaddingBottom();
-//            if (specMode == MeasureSpec.AT_MOST) {
-//                // Respect AT_MOST value if that was what is called for by measureSpec
-//                result = Math.min(result, specSize);
-//            }
-//        }
         return result;
     }
 
@@ -240,7 +225,9 @@ public class SectionBar extends View {
                 if (mOnActionListener != null) {
                     mOnActionListener.hidden();
                 }
-                curPosition = -1;
+                if (!retainSelected) {
+                    curPosition = -1;
+                }
                 setPressed(false);
                 break;
         }
@@ -249,7 +236,7 @@ public class SectionBar extends View {
     }
 
     private int getPositionAtY(int y) {
-        return Math.min(Math.max(0, (int) ((y - textSize / 2) / letterHeight)), list.length - 1);
+        return Math.min(Math.max(0, (int) ((y - textSize / 2) / itemHeight)), list.length - 1);
     }
 
     /**

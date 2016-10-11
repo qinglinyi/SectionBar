@@ -15,11 +15,30 @@
         android:id="@+id/sb"
         android:layout_width="wrap_content"
         android:layout_height="match_parent"
+        android:layout_alignParentRight="true"
         android:background="#bbccdd"
-        android:padding="10dp"
+        android:paddingBottom="5dp"
+        android:paddingLeft="5dp"
+        android:paddingRight="5dp"
+        android:paddingTop="5dp"
         app:hightlightDrawable="@drawable/hightlight"
+        app:retainSelected="true"
         app:selectedDrawable="@drawable/selected"
-        app:spacing="0dp"
-        app:textColor="@color/colorPrimary"/>
+        app:spacing="5dp"
+        app:textColor="@color/colorAccent"
+        app:textSelectedColor="#FFF"/>
+
+    <TextView
+        android:id="@+id/selectedTv"
+        android:layout_width="70dp"
+        android:layout_height="50dp"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="30dp"
+        android:background="#7eb022"
+        android:gravity="center"
+        android:textColor="#FFF"
+        android:textSize="25sp"
+        android:visibility="gone"/>
 
 </RelativeLayout>
